@@ -1,0 +1,271 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>Sales Analytics</h2>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Date Range Filter</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="startDate" class="form-label">Start Date</label>
+                        <input type="date" class="form-control" id="startDate">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="endDate" class="form-label">End Date</label>
+                        <input type="date" class="form-control" id="endDate">
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-primary" onclick="loadAnalytics()">Load Analytics</button>
+                    <button class="btn btn-secondary" onclick="resetDates()">Reset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <h5 class="card-title">Total Orders</h5>
+                <h3 id="totalOrders">-</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <h5 class="card-title">Total Revenue</h5>
+                <h3 id="totalRevenue">-</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <h5 class="card-title">Average Order Value</h5>
+                <h3 id="avgOrderValue">-</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <h5 class="card-title">Orders Today</h5>
+                <h3 id="ordersToday">-</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Orders by Status</h5>
+            </div>
+            <div class="card-body">
+                <div id="ordersByStatus">
+                    <!-- Orders by status will be loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Top Selling Products</h5>
+            </div>
+            <div class="card-body">
+                <div id="topProducts">
+                    <!-- Top products will be loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Recent Orders</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Customer</th>
+                                <th>Total Amount</th>
+                                <th>Status</th>
+                                <th>Order Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentOrdersTable">
+                            <!-- Recent orders will be loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Load analytics data
+async function loadAnalytics() {
+    try {
+        const token = localStorage.getItem('token');
+        let url = '/api/admin/analytics/sales';
+        
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        
+        if (startDate) url += `?start_date=${startDate}`;
+        if (endDate) url += `${startDate ? '&' : '?'}end_date=${endDate}`;
+        
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            displayAnalytics(data);
+        } else {
+            alert('Error loading analytics');
+        }
+    } catch (error) {
+        console.error('Error loading analytics:', error);
+        alert('Error loading analytics');
+    }
+}
+
+// Display analytics data
+function displayAnalytics(data) {
+    document.getElementById('totalOrders').textContent = data.total_orders;
+    document.getElementById('totalRevenue').textContent = `₹${data.total_revenue.toFixed(2)}`;
+    document.getElementById('avgOrderValue').textContent = `₹${data.average_order_value.toFixed(2)}`;
+    
+    // Display orders by status
+    const ordersByStatus = document.getElementById('ordersByStatus');
+    ordersByStatus.innerHTML = '';
+    
+    Object.entries(data.orders_by_status).forEach(([status, count]) => {
+        const statusDiv = document.createElement('div');
+        statusDiv.className = 'd-flex justify-content-between align-items-center mb-2 p-2 border rounded';
+        statusDiv.innerHTML = `
+            <span class="badge bg-${getStatusColor(status)}">${status.toUpperCase()}</span>
+            <span class="fw-bold">${count}</span>
+        `;
+        ordersByStatus.appendChild(statusDiv);
+    });
+    
+    // Display top products
+    const topProducts = document.getElementById('topProducts');
+    topProducts.innerHTML = '';
+    
+    data.top_products.forEach((product, index) => {
+        const productDiv = document.createElement('div');
+        productDiv.className = 'd-flex justify-content-between align-items-center mb-2 p-2 border rounded';
+        productDiv.innerHTML = `
+            <div>
+                <strong>${index + 1}. ${product.name}</strong><br>
+                <small class="text-muted">Qty: ${product.quantity}</small>
+            </div>
+            <div class="text-end">
+                <span class="fw-bold">₹${product.revenue.toFixed(2)}</span>
+            </div>
+        `;
+        topProducts.appendChild(productDiv);
+    });
+}
+
+// Load recent orders
+async function loadRecentOrders() {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/admin/orders?per_page=10', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            displayRecentOrders(data.orders);
+        }
+    } catch (error) {
+        console.error('Error loading recent orders:', error);
+    }
+}
+
+// Display recent orders
+function displayRecentOrders(orders) {
+    const recentOrdersTable = document.getElementById('recentOrdersTable');
+    recentOrdersTable.innerHTML = '';
+    
+    orders.forEach(order => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>#${order.id}</td>
+            <td>${order.user.first_name} ${order.user.last_name}</td>
+            <td>₹${order.total_amount.toFixed(2)}</td>
+            <td>
+                <span class="badge bg-${getStatusColor(order.status)}">${order.status.toUpperCase()}</span>
+            </td>
+            <td>${new Date(order.created_at).toLocaleDateString()}</td>
+        `;
+        recentOrdersTable.appendChild(row);
+    });
+}
+
+// Get status color for badge
+function getStatusColor(status) {
+    const colors = {
+        'pending': 'warning',
+        'processing': 'info',
+        'shipped': 'primary',
+        'delivered': 'success',
+        'cancelled': 'danger'
+    };
+    return colors[status] || 'secondary';
+}
+
+// Reset dates
+function resetDates() {
+    document.getElementById('startDate').value = '';
+    document.getElementById('endDate').value = '';
+    loadAnalytics();
+}
+
+// Set default dates (last 30 days)
+function setDefaultDates() {
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000));
+    
+    document.getElementById('endDate').value = today.toISOString().split('T')[0];
+    document.getElementById('startDate').value = thirtyDaysAgo.toISOString().split('T')[0];
+}
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', () => {
+    setDefaultDates();
+    loadAnalytics();
+    loadRecentOrders();
+});
+</script>
+{% endblock %}

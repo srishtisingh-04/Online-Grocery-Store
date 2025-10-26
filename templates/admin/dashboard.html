@@ -1,0 +1,222 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>Admin Dashboard</h2>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <h5 class="card-title">Total Products</h5>
+                <h3 id="totalProducts">-</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <h5 class="card-title">Total Orders</h5>
+                <h3 id="totalOrders">-</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <h5 class="card-title">Total Revenue</h5>
+                <h3 id="totalRevenue">-</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <h5 class="card-title">Total Users</h5>
+                <h3 id="totalUsers">-</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Recent Orders</h5>
+            </div>
+            <div class="card-body">
+                <div id="recentOrders">
+                    <!-- Recent orders will be loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Low Stock Products</h5>
+            </div>
+            <div class="card-body">
+                <div id="lowStockProducts">
+                    <!-- Low stock products will be loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Load dashboard data
+async function loadDashboardData() {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            alert('Please login as admin');
+            window.location.href = '/login';
+            return;
+        }
+        
+        // Load analytics
+        const analyticsResponse = await fetch('/api/admin/analytics/sales', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (analyticsResponse.ok) {
+            const analyticsData = await analyticsResponse.json();
+            document.getElementById('totalOrders').textContent = analyticsData.total_orders;
+            document.getElementById('totalRevenue').textContent = `₹${analyticsData.total_revenue.toFixed(2)}`;
+        }
+        
+        // Load products count
+        const productsResponse = await fetch('/api/admin/products', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (productsResponse.ok) {
+            const productsData = await productsResponse.json();
+            document.getElementById('totalProducts').textContent = productsData.total;
+        }
+        
+        // Load users count
+        const usersResponse = await fetch('/api/admin/users', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (usersResponse.ok) {
+            const usersData = await usersResponse.json();
+            document.getElementById('totalUsers').textContent = usersData.total;
+        }
+        
+        // Load recent orders
+        const ordersResponse = await fetch('/api/admin/orders?per_page=5', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (ordersResponse.ok) {
+            const ordersData = await ordersResponse.json();
+            displayRecentOrders(ordersData.orders);
+        }
+        
+        // Load low stock products
+        const lowStockResponse = await fetch('/api/admin/products?per_page=5', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (lowStockResponse.ok) {
+            const productsData = await lowStockResponse.json();
+            const lowStockProducts = productsData.products.filter(p => p.stock_quantity < 10);
+            displayLowStockProducts(lowStockProducts);
+        }
+        
+    } catch (error) {
+        console.error('Error loading dashboard data:', error);
+    }
+}
+
+// Display recent orders
+function displayRecentOrders(orders) {
+    const recentOrdersContainer = document.getElementById('recentOrders');
+    
+    if (orders.length === 0) {
+        recentOrdersContainer.innerHTML = '<p class="text-muted">No recent orders</p>';
+        return;
+    }
+    
+    recentOrdersContainer.innerHTML = '';
+    
+    orders.forEach(order => {
+        const orderDiv = document.createElement('div');
+        orderDiv.className = 'd-flex justify-content-between align-items-center mb-2 p-2 border rounded';
+        orderDiv.innerHTML = `
+            <div>
+                <strong>Order #${order.id}</strong><br>
+                <small class="text-muted">₹${order.total_amount.toFixed(2)}</small>
+            </div>
+            <div>
+                <span class="badge bg-${getStatusColor(order.status)}">${order.status}</span><br>
+                <small class="text-muted">${new Date(order.created_at).toLocaleDateString()}</small>
+            </div>
+        `;
+        recentOrdersContainer.appendChild(orderDiv);
+    });
+}
+
+// Display low stock products
+function displayLowStockProducts(products) {
+    const lowStockContainer = document.getElementById('lowStockProducts');
+    
+    if (products.length === 0) {
+        lowStockContainer.innerHTML = '<p class="text-muted">All products are well stocked</p>';
+        return;
+    }
+    
+    lowStockContainer.innerHTML = '';
+    
+    products.forEach(product => {
+        const productDiv = document.createElement('div');
+        productDiv.className = 'd-flex justify-content-between align-items-center mb-2 p-2 border rounded';
+        productDiv.innerHTML = `
+            <div>
+                <strong>${product.name}</strong><br>
+                <small class="text-muted">₹${product.price}</small>
+            </div>
+            <div>
+                <span class="badge bg-warning">${product.stock_quantity} left</span>
+            </div>
+        `;
+        lowStockContainer.appendChild(productDiv);
+    });
+}
+
+// Get status color for badge
+function getStatusColor(status) {
+    const colors = {
+        'pending': 'warning',
+        'processing': 'info',
+        'shipped': 'primary',
+        'delivered': 'success',
+        'cancelled': 'danger'
+    };
+    return colors[status] || 'secondary';
+}
+
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', () => {
+    loadDashboardData();
+});
+</script>
+{% endblock %}

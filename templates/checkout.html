@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">Checkout</h4>
+            </div>
+            <div class="card-body">
+                <form id="checkoutForm">
+                    <div class="mb-3">
+                        <label for="shipping_address" class="form-label">Shipping Address</label>
+                        <textarea class="form-control" id="shipping_address" rows="4" required placeholder="Enter your complete shipping address"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h5>Order Summary</h5>
+                        <div id="orderSummary">
+                            <!-- Order summary will be loaded dynamically -->
+                        </div>
+                    </div>
+                    
+                    <div class="text-end">
+                        <h4>Total: ₹<span id="totalAmount">0.00</span></h4>
+                        <button type="submit" class="btn btn-success btn-lg">Place Order</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let cartItems = [];
+let totalAmount = 0;
+
+// Load cart items for checkout
+async function loadCartForCheckout() {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            alert('Please login to checkout');
+            window.location.href = '/login';
+            return;
+        }
+        
+        const response = await fetch('/api/customer/cart', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            cartItems = data.cart_items;
+            totalAmount = data.total_amount;
+            
+            if (cartItems.length === 0) {
+                alert('Your cart is empty');
+                window.location.href = '/';
+                return;
+            }
+            
+            displayOrderSummary();
+        } else {
+            alert('Error loading cart');
+        }
+    } catch (error) {
+        console.error('Error loading cart:', error);
+        alert('Error loading cart');
+    }
+}
+
+// Display order summary
+function displayOrderSummary() {
+    const orderSummary = document.getElementById('orderSummary');
+    const totalAmountElement = document.getElementById('totalAmount');
+    
+    orderSummary.innerHTML = '';
+    totalAmountElement.textContent = totalAmount.toFixed(2);
+    
+    cartItems.forEach(item => {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'd-flex justify-content-between mb-2';
+        itemDiv.innerHTML = `
+            <span>${item.product_name} x ${item.quantity}</span>
+            <span>₹${item.total_price.toFixed(2)}</span>
+        `;
+        orderSummary.appendChild(itemDiv);
+    });
+}
+
+// Handle checkout form submission
+document.getElementById('checkoutForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const shippingAddress = document.getElementById('shipping_address').value;
+    
+    if (!shippingAddress.trim()) {
+        alert('Please enter shipping address');
+        return;
+    }
+    
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/customer/checkout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                shipping_address: shippingAddress
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert('Order placed successfully!');
+            localStorage.removeItem('cart');
+            window.location.href = '/orders';
+        } else {
+            alert(data.error || 'Error placing order');
+        }
+    } catch (error) {
+        console.error('Checkout error:', error);
+        alert('Error placing order. Please try again.');
+    }
+});
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', () => {
+    loadCartForCheckout();
+});
+</script>
+{% endblock %}
