@@ -64,5 +64,6 @@ class CartItem(db.Model):
             'product_name': self.product.name if self.product else None,
             'product_price': float(self.product.price) if self.product else 0,
             'quantity': self.quantity,
-            'total_price': float(self.product.price * self.quantity) if self.product else 0
+            'total_price': float(self.product.price * self.quantity) if self.product else 0,
+            'stock_quantity': self.product.stock_quantity if self.product else 0
         }

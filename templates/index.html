@@ -96,13 +96,31 @@
                         <h5>Total: ₹<span id="cartTotal">0.00</span></h5>
                     </div>
                     <div class="col-md-6 text-end">
-                        <button class="btn btn-success btn-lg" id="checkoutBtn">Checkout</button>
+                        <button class="btn btn-success btn-lg" id="checkoutBtn">Proceed to Checkout</button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+// Handle checkout button click in cart modal
+document.addEventListener('DOMContentLoaded', () => {
+    const checkoutBtn = document.getElementById('checkoutBtn');
+    if (checkoutBtn) {
+        checkoutBtn.addEventListener('click', () => {
+            // Close the cart modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('cartModal'));
+            if (modal) {
+                modal.hide();
+            }
+            // Navigate to checkout page
+            window.location.href = '/checkout';
+        });
+    }
+});
+</script>
 
 <script>
 let currentPage = 1;
@@ -183,7 +201,7 @@ function displayProducts(products) {
         productCard.className = 'col-md-4 mb-4';
         productCard.innerHTML = `
             <div class="card h-100">
-                <img src="${product.image_url || '/static/images/placeholder.jpg'}" class="card-img-top" alt="${product.name}" style="height: 200px; object-fit: cover;">
+                <img src="${product.image_url || '/static/images/download.jpg'}" class="card-img-top" alt="${product.name}" style="height: 200px; object-fit: cover;">
                 <div class="card-body d-flex flex-column">
                     <h5 class="card-title">${product.name}</h5>
                     <p class="card-text text-muted">${product.description || ''}</p>
@@ -225,11 +243,12 @@ function displayPagination(data) {
 async function viewProduct(productId) {
     try {
         const response = await fetch(`/api/customer/products/${productId}`);
+        console.log(response,"abcdef");
         const data = await response.json();
         const product = data.product;
         
-        document.getElementById('productModalTitle').textContent = product.name;
-        document.getElementById('productImage').src = product.image_url || '/static/images/placeholder.jpg';
+        document.getElementById('productModalTitle').textContent = product?.name;
+        document.getElementById('productImage').src = product.image_url || '/static/images/download.jpg';
         document.getElementById('productName').textContent = product.name;
         document.getElementById('productDescription').textContent = product.description || '';
         document.getElementById('productPrice').textContent = `₹${product.price}`;
@@ -342,6 +361,7 @@ async function viewCart() {
         
         if (response.ok) {
             const data = await response.json();
+
             displayCartItems(data.cart_items);
             document.getElementById('cartTotal').textContent = data.total_amount.toFixed(2);
             new bootstrap.Modal(document.getElementById('cartModal')).show();
@@ -368,7 +388,7 @@ function displayCartItems(cartItems) {
                 <p class="text-muted">₹${item.product_price}</p>
             </div>
             <div class="col-md-3">
-                <input type="number" class="form-control" value="${item.quantity}" min="1" max="${item.product.stock_quantity}" onchange="updateCartItem(${item.id}, this.value)">
+                <input type="number" class="form-control" value="${item.quantity}" min="1" max="${item.stock_quantity}" onchange="updateCartItem(${item.id}, this.value)">
             </div>
             <div class="col-md-2">
                 <p class="fw-bold">₹${item.total_price.toFixed(2)}</p>
